@@ -1,72 +1,64 @@
-﻿# إعداد
-$basePath = "$env:USERPROFILE\Desktop\aiimages"
-$dailyPath = "$basePath\daily"
+﻿# إعداد المجلدات
+$basePath = "$PSScriptRoot"
 $today = Get-Date -Format "yyyy-MM-dd"
-$todayPath = "$dailyPath\$today"
-New-Item -ItemType Directory -Force -Path $todayPath | Out-Null
+$imgFolder = "$basePath\daily\$today"
+New-Item -ItemType Directory -Path $imgFolder -Force | Out-Null
 
-# إعداد صور اليوم - يمكنك تغيير البرومبتات حسب النيش
+# برومبتات الصور
 $prompts = @(
-    "A futuristic AI-inspired abstract wallpaper",
-    "Minimalist mountain landscape with neon sky",
-    "Cyberpunk city street with vibrant colors"
+    "Cyberpunk city at night, vibrant neon lights",
+    "Futuristic Arabic calligraphy digital art",
+    "Minimalist desert landscape with stars"
 )
 
-# فتح Bing Image Creator تلقائيًا (يمكنك استخدام Playground AI أيضًا)
-foreach ($prompt in $prompts) {
-    $url = "https://www.bing.com/images/create?q=" + [uri]::EscapeDataString($prompt)
-    Start-Process $url
-    Start-Sleep -Seconds 15
+# تحميل الصور من pollinations.ai
+for ($i = 0; $i -lt $prompts.Count; $i++) {
+    $prompt = [uri]::EscapeDataString($prompts[$i])
+    $url = "https://image.pollinations.ai/prompt/$prompt"
+    $fileName = "img_$($i+1).jpg"
+    $savePath = Join-Path $imgFolder $fileName
+    Invoke-WebRequest -Uri $url -OutFile $savePath
+    Start-Sleep -Seconds 5
 }
-Write-Host "`n📸 افتح كل تبويبة، احفظ الصورة داخل هذا المجلد: $todayPath`n"
 
-# انتظار المستخدم لحفظ الصور يدويًا ثم المتابعة
-pause
-
-# تحديث صفحة HTML
+# توليد صفحة index.html
 $indexPath = "$basePath\index.html"
-$htmlHead = @"
+$html = @"
 <!DOCTYPE html>
 <html lang='en'>
 <head>
   <meta charset='UTF-8'>
-  <title>AI Images Archive</title>
+  <title>AI Image Archive</title>
   <style>
-    body { font-family:sans-serif; padding:20px; background:#fafafa }
-    img { max-width:300px; height:auto; margin:10px; border:1px solid #ccc }
+    body { font-family: Arial; padding: 20px; background: #f0f0f0; }
+    h1 { color: #333; }
+    img { max-width: 300px; margin: 10px; border: 1px solid #ccc; }
   </style>
 </head>
 <body>
-<h1>📅 أرشيف صور ذكاء اصطناعي يومي</h1>
-<p>🔗 <a href='https://payhip.com/yourstore'>اشترِ جميع الصور بدقة كاملة</a> أو <a href='https://ko-fi.com/yourpage'>ادعمني هنا</a></p>
-<ul>
+  <h1>📅 AI Image Archive</h1>
+  <p><a href='https://payhip.com/yourstore'>🔗 Buy full-resolution packs</a> | <a href='https://ko-fi.com/yourpage'>☕ Support me</a></p>
+  <ul>
 "@
 
-$htmlBody = ""
-
-# توليد روابط الصور حسب التاريخ
-$folders = Get-ChildItem -Path $dailyPath -Directory | Sort-Object Name -Descending
+$folders = Get-ChildItem "$basePath\daily" -Directory | Sort-Object Name -Descending
 foreach ($folder in $folders) {
-    $date = $folder.Name
-    $htmlBody += "<li><h3>$date</h3>"
-    $imgs = Get-ChildItem -Path $folder.FullName -Include *.jpg, *.png -Recurse
+    $html += "<li><h2>$($folder.Name)</h2>"
+    $imgs = Get-ChildItem $folder.FullName -Include *.jpg, *.png -Recurse
     foreach ($img in $imgs) {
         $relPath = $img.FullName.Replace($basePath + "\", "").Replace("\", "/")
-        $htmlBody += "<img src='$relPath' alt='$date'>"
+        $html += "<img src='$relPath' alt='$($img.Name)'>"
     }
-    $htmlBody += "</li>`n"
+    $html += "</li>`n"
 }
 
-$htmlFooter = "</ul></body></html>"
+$html += "</ul></body></html>"
+Set-Content -Path $indexPath -Value $html -Encoding UTF8
 
-# حفظ الصفحة
-$htmlFull = $htmlHead + $htmlBody + $htmlFooter
-Set-Content -Path $indexPath -Value $htmlFull -Encoding UTF8
-
-# GitHub: إضافة الصور والرفع التلقائي
+# رفع إلى GitHub
 Set-Location $basePath
 git add .
-git commit -m "تحديث يوم $today"
+git commit -m "✅ تحديث تلقائي $today"
 git push
 
-Write-Host "`n✅ تم التحديث والنشر على GitHub Pages: تحقق من موقعك!"
+Write-Host "`n✅ تم توليد الصور ونشرها بنجاح: https://sfnzai.github.io/aiimages/"
